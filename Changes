@@ -1,0 +1,62 @@
+* v1.02, Thursday, March 12, 2003
+
+   Added Mac OS X support (see Mac::Carbon).
+
+   Fixed bug with scripts not being saved in specified resource ID.
+
+   Don't save component if request for nonexistent one fails.
+
+   Some cleanup.
+
+   Changed load_osa_script() arguments.  Second argument no longer is in
+   use. Whether it is a file is determined by virtue of it not being a
+   Handle object.  Second argument is now resource ID, unless it is 1, in
+   which case we assume you are calling with the old parameters.  If you
+   really want to save with resource ID of 1, then add a third parameter of
+   "1".  Sorry.
+
+
+* v1.01, Wednesday, December 4, 2002
+
+   Save scripts as script contexts.  (Bart Lateur)
+
+
+* v1.00, Tuesday, January 22, 2002
+
+   Changed TEXT to SOURCE in internal hash storing text source of script.
+
+   Added C<source> method (finish adding docs).
+
+   Made calls for generic scripting component to %ScriptComponents
+   make new call to OpenComponent each time.
+
+   Bump version info.
+
+
+* v0.51, Saturday, March 20, 1999
+
+   Fixed silly bug in return from execute, where multiline
+   return values would not return (added /s so . would match \n)
+   (John Moreno <phenix@interpath.com>).
+
+
+* v0.50, Friday, March 12, 1999
+
+   Changed around the argument order for osa_script() and
+   compile_osa_script().
+
+   Added load_osa_script() function.
+
+   Added save() method.
+
+   Added lots of tests.
+
+
+* v0.10, Tuesday, March 9, 1999
+
+   Added lots of stuff to get compiled script data.
+
+
+* v0.02, May 19, 1998
+
+   Here goes ...

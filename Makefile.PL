@@ -1,7 +1,17 @@
 use ExtUtils::MakeMaker;
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence
-# the contents of the Makefile that is written.
+
 WriteMakefile(
-    'NAME'	=> 'Mac::OSA::Simple',
-    'VERSION_FROM' => 'Simple.pm', # finds $VERSION
+	'NAME'			=> 'Mac::OSA::Simple',
+	'VERSION_FROM'	=> 'Simple.pm',
+	'PREREQ_PM'	=> {
+    		'Mac::AppleEvents' => 1.24,
+    		'Mac::Components'  => 1.02,
+    		'Mac::Memory'      => 1.22,
+    		'Mac::OSA'         => 1.02,
+    		'Mac::Resources'   => 1.02,
+    		'Test::More'       => 0,
+	},
+	'clean'	=> {
+		'FILES'	=> 'Mac-OSA-Simple-*'
+	},
 );

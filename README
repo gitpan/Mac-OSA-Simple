@@ -1,204 +1,31 @@
-Saturday, March 20, 1999
+This is Mac::OSA::Simple, a module for simple access to OSA scripting
+via Mac::OSA (part of the Mac::Carbon distribution).  It allows
+compiling of OSA scripts using any OSA language, as well as execution,
+saving to disk, and loading.
 
-**MAJOR CHANGE** in interface from 0.51.  See docs below.
+This release features a few bugfixes, some cleanup, and Mac OS X support.
+
+It also changes the arguments for load_osa_script().  See Changes for more
+information.
 
 This archive can always be obtained from:
 
-    http://www.perl.com/CPAN/authors/id/CNANDOR/
-    http://www.perl.com/CPAN/modules/by-module/Mac/
+    http://sf.net/projects/pudge/
+    http://www.cpan.org/authors/id/CNANDOR/
+    http://www.cpan.org/modules/by-module/Mac/
 
-The file is a tarred, gzipped file.  Use Stuffit Expander or a
-similar program (like my untargzipme) to get at the archive.
+The project homepage is:
+
+    http://projects.pudge.net/
 
 Please let me know how well it does(n't) work, and any changes you'd 
-like to see.
+like to see.   Thanks to all of the people who have sent me feedback
+and ideas.
 
-#=======================================================================
-
-NAME
-    Mac::OSA::Simple - Simple access to Mac::OSA
-
-SYNOPSIS
-        #!perl -wl
-        use Mac::OSA::Simple;
-        osa_script('LAND', <<'EOS');
-          dialog.getInt ("Duration?",@examples.duration);
-          dialog.getInt ("Amplitude?",@examples.amplitude);
-          dialog.getInt ("Frequency?",@examples.frequency);
-          speaker.sound (examples.duration, examples.amplitude,
-              examples.frequency)
-        EOS
-
-        print frontier('clock.now()');
-
-        applescript('beep 3');
-
-DESCRIPTION
-        **MAJOR CHANGE**
-        Scripting component in osa_script and compile_osa_script
-        is now the first parameter, not the second.
-        Now the script text is second.
-
-    You can access scripting components via the tied hash
-    `%ScriptComponents' which is automatically exported. Components are
-    only opened if they have not been already, and are closed when the
-    program exits. It is normally not necessary to use this hash, as it is
-    accessed internally when needed.
-
-    Also usually not necessary, but possibly useful, are all the functions
-    and constants from Mac::OSA, available with the EXPORT_TAG "all".
-
-  Functions
-
-    The following functions are automatically exported.
-
-    osa_script(SCRIPTCOMPONENT, SCRIPTTEXT)
-        Compiles and executes SCRIPTTEXT, using four-char SCRIPTCOMPONENT.
-        Component is opened and closed behind the scenes, and SCRIPTTEXT
-        is compiled, executed, and disposed of behind the scenes. If the
-        script returns data, the function returns the data, else it
-        returns 1 or undef on failure.
-
-    applescript(SCRIPTTEXT)
-    frontier(SCRIPTTEXT)
-        Same thing as `osa_script' with SCRIPTCOMPONENT already set
-        ('ascr' for AppleScript, 'LAND' for Frontier).
-
-    compile_osa_script(SCRIPTCOMPONENT, SCRIPTTEXT)
-        Compiles script as `osa_script' above, but does not execute it.
-        Returns Mac::OSA::Simple object. See the section on "Methods" for
-        more information.
-
-    compile_applescript(SCRIPTTEXT)
-    compile_frontier(SCRIPTTEXT)
-        Same thing as `compile_osa_script' with SCRIPTCOMPONENT already
-        set.
-
-    load_osa_script(HANDLE)
-    load_osa_script(FILE, FROMFILE [, RESOURCEID])
-        In the first form, load compiled OSA script using data in HANDLE
-        (same data as returned by `compiled' method; see the Mac::Memory
-        manpage). In the second form, with FROMFILE true, gets script from
-        FILE using RESOURCEID (which is 128 by default). Returns
-        Mac::OSA::Simple object.
-
-            **NOTE**
-            This function uses FSpOpenResFile, which has a bug in it
-            that causes it to treat $ENV{MACPERL} as the current
-            directory.  For safety, always pass FILE as an absolute
-            path, for now.
-
-        Example:
-
-            use Mac::OSA::Simple qw(:all);
-            use Mac::Resources;
-            $res = FSpOpenResFile($file, 0) or die $^E;
-            $scpt = Get1Resource(kOSAScriptResourceType, 128)
-                or die $^E;
-            $osa = load_osa_script($scpt);
-            $osa->execute;
-            CloseResFile($res);
-
-        Same thing:
-
-            use Mac::OSA::Simple;
-            $osa = load_osa_script($file, 1);
-            $osa->execute;
-
-        Another example:
-
-            use Mac::OSA::Simple;
-            $osa1 = compile_applescript('return "foo"');
-            print $osa1->execute;
-
-            # make copy of script in $osa1 and execute it
-            $osa2 = load_osa_script($osa1->compiled);
-            print $osa2->execute;
-
-        See the section on "Methods" for more information.
-
-  Methods
-
-    This section describes methods for use on objects returned by
-    `compile_osa_script' and its related functions and `load_osa_script'.
-
-    compiled
-        Returns a HANDLE containing the raw compiled form of the script
-        (see the Mac::Memory manpage).
-
-    dispose
-        Disposes of OSA script. Done automatically if not called
-        explicitly.
-
-    execute
-        Executes script. Can be executed more than once.
-
-    save(FILE [, ID [, NAME]])
-        Saves script in FILE with ID and NAME. ID defaults to 128, NAME
-        defaults to "MacPerl Script". DANGEROUS! Will overwrite existing
-        resource!
-
-            **NOTE**
-            This function uses FSpOpenResFile, which has a bug in it
-            that causes it to treat $ENV{MACPERL} as the current
-            directory.  For safety, always pass FILE as an absolute
-            path, for now.
-
-BUGS
-    `load_osa_script' function and `save' method require absolute paths.
-    Problem in Mac::Resources itself.
-
-TODO
-    Work on error handling. We don't want to die when a toolbox function
-    fails. We'd rather return undef and have the user check $^E.
-
-    Should `frontier' and/or `osa_script('LAND', $script)' launch Frontier
-    if it is not running?
-
-    Add `run_osa_script', which could take script data in a Handle or a
-    path to a script (as with `load_osa_script'.
-
-    Should `save' have optional parameter for overwriting resource?
-
-    Should `run_osa_script' and `execute' take arguments? If so, how?
-
-HISTORY
-    v0.51, Saturday, March 20, 1999
-        Fixed silly bug in return from execute, where multiline return
-        values would not return (added /s so . would match \n) (John
-        Moreno <phenix@interpath.com>).
-
-    v0.50, Friday, March 12, 1999
-        Changed around the argument order for `osa_script' and
-        `compile_osa_script'.
-
-        Added `load_osa_script' function.
-
-        Added `save' method.
-
-        Added lots of tests.
-
-    v0.10, Tuesday, March 9, 1999
-        Added lots of stuff to get compiled script data.
-
-    v0.02, May 19, 1998
-        Here goes ...
-
-AUTHOR
-    Chris Nandor <pudge@pobox.com> http://pudge.net/
-
-    Copyright (c) 1999 Chris Nandor. All rights reserved. This program is
-    free software; you can redistribute it and/or modify it under the same
-    terms as Perl itself. Please see the Perl Artistic License.
-
-SEE ALSO
-    Mac::OSA, Mac::AppleEvents, Mac::AppleEvents::Simple, macperlcat.
-
-VERSION
-    Version 0.51 (Saturday, March 20, 1999)
-
-#=======================================================================
+Copyright (c) 1998-2003 Chris Nandor.  All rights reserved.  This program
+is free software; you can redistribute it and/or modify it under the terms
+of the Artistic License, distributed with Perl.
 
 -- 
-Chris Nandor          mailto:pudge@pobox.com         http://pudge.net/
-%PGPKey = ('B76E72AD', [1024, '0824090B CE73CA10  1FF77F13 8180B6B6'])
+Chris Nandor                      pudge@pobox.com    http://pudge.net/
+Open Source Development Network    pudge@osdn.com     http://osdn.com/

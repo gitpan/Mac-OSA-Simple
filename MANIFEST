@@ -1,5 +1,8 @@
-MANIFEST
+Changes
 Makefile.PL
+MANIFEST
 README
 Simple.pm
-test.pl
+t/javascript.t
+t/load.t
+t/osashell.t

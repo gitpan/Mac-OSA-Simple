@@ -1,23 +1,32 @@
 package Mac::OSA::Simple;
 
 use strict;
-use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS
-    %ScriptComponents);
-use Mac::Components;
-use Mac::OSA;
-use Mac::AppleEvents;
-use Mac::Resources;
-use Mac::Memory;
-use Exporter;
-use Carp;
+use vars qw(
+	$VERSION $REVISION @ISA
+	@EXPORT @EXPORT_OK %EXPORT_TAGS
+	%ScriptComponents
+);
 
-@ISA = qw(Exporter AutoLoader);
-@EXPORT = qw(frontier applescript osa_script
-    compile_applescript compile_frontier compile_osa_script
-    load_osa_script %ScriptComponents);
+use Carp;
+use Exporter;
+
+use Mac::AppleEvents;
+use Mac::Components;
+use Mac::Memory;
+use Mac::OSA;
+use Mac::Resources;
+
+@ISA = qw(Exporter);
+@EXPORT = qw(
+	frontier applescript osa_script
+	compile_frontier compile_applescript compile_osa_script
+	load_osa_script %ScriptComponents
+);
 @EXPORT_OK = @Mac::OSA::EXPORT;
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
-$VERSION = '0.51';
+
+$REVISION = '$Id: Simple.pm,v 1.1.1.1 2003/03/13 05:12:35 pudge Exp $';
+$VERSION = '1.02';
 
 tie %ScriptComponents, 'Mac::OSA::Simple::Components';
 
@@ -32,163 +41,228 @@ sub compile_osa_script  { _compile_script(@_[0, 1])         }
 sub load_osa_script     { _load_script(@_[0, 1, 2])         }
 
 sub execute {
-    my($self, $value, $return) = ($_[0], '', '');
+	my($self) = @_;
+	my $value = my $return = '';
 
-    $value = OSAExecute($self->{COMP}, $self->{ID}, 0, 0);
-    if ($value) {
-        $return = OSADisplay($self->{COMP}, $value, 'TEXT', 0)
-            or die $^E;
-        OSADispose($self->{COMP}, $value);
-    }
-    ($self->{RETURN}) = ($return ? (AEPrint($return) =~ /^Ò(.*)Ó$/s) : 1);
-    AEDisposeDesc($return) if $return;
-    $self->{RETURN};
+	$value = OSAExecute($self->{COMP}, $self->{ID}, 0, 0)
+		or _mydie() && return;
+
+	if ($value) {
+		$return = OSADisplay($self->{COMP}, $value, typeChar, 0)
+			or _mydie() && return;
+		OSADispose($self->{COMP}, $value);
+	}
+
+	$self->{RETURN} = $return && $return->isa('AEDesc')
+        	? $return->get : 1;
+
+	AEDisposeDesc($return) if $return;
+
+	return $self->{RETURN};
 }
 
 sub dispose {
-    my $self = shift;
-    if ($self->{ID} && $self->{COMP}) {
-        OSADispose($self->{COMP}, $self->{ID});
-        delete $self->{ID};
-    }
-    if ($self->{SCRIPT}) {
-        AEDisposeDesc($self->{SCRIPT});
-        delete $self->{SCRIPT};
-    }
-    1;
+	my($self) = @_;
+
+	if ($self->{ID} && $self->{COMP}) {
+		OSADispose($self->{COMP}, $self->{ID});
+		delete $self->{ID};
+	}
+
+	if ($self->{SCRIPT}) {
+		AEDisposeDesc($self->{SCRIPT});
+		delete $self->{SCRIPT};
+	}
+
+	return 1;
 }
 
 sub save {
-    my($self, $file, $resid, $name, $len, $scpt, $res, $foo) = @_;
+	my($self, $file, $resid, $name) = @_;
 
-    $scpt = $self->compiled or die $^E;
+	my $scpt = $self->compiled or _mydie() && return;
 
-    $resid = defined($resid) ? $resid : 128;
-    $name  = defined($name)  ? $name  : 'MacPerl Script';
+	$resid = defined($resid) ? $resid : 128;
+	$name  = defined($name)  ? $name  : 'MacPerl Script';
 
-    unless (-e $file) {
-        CreateResFile($file) or die $^E;
-        MacPerl::SetFileInfo('ToyS', 'osas', $file);
-    }
+	# this sucks; fix GUSI* routines
+	my $res;
+	unless (-e $file) {
+		open my $fh, '>', $file;
+		close $fh;
+	}
+	unless ($res = FSpOpenResFile($file, 0)) {
+		FSpCreateResFile($file, 'ToyS', 'osas', 0) or _mydie() && return;
+		$res = FSpOpenResFile($file, 0) or _mydie() && return;
+	}
 
-    $res = FSpOpenResFile($file, 0) or die $^E;
-    $foo = Get1Resource(kOSAScriptResourceType, $resid);
-    if (defined $foo) {
-        RemoveResource($foo) or die $^E;
-    }
+	my $foo = Get1Resource(kOSAScriptResourceType, $resid);
+	if (defined $foo) {
+		RemoveResource($foo) or _mydie() && return;
+	}
 
-    AddResource($scpt, kOSAScriptResourceType, 128, $name)
-        or die $^E;
+	AddResource($scpt, kOSAScriptResourceType, $resid, $name)
+		or _mydie() && return;
 
-    UpdateResFile($res) or die $^E;
-    CloseResFile($res);
+	UpdateResFile($res) or _mydie() && return;
+	CloseResFile($res);
 
-    1;
+	return 1;
+}
+
+sub source {
+	my($self, $source, $text) = @_;
+    
+	$source = OSAGetSource($self->{COMP}, $self->{ID}, typeChar)
+		or _mydie() && return;
+
+	$self->{SOURCE} = $source && $source->isa('AEDesc')
+        	? $source->get : '';
+
+	AEDisposeDesc($source);
+
+	$self->{SOURCE} =~ s/\015/\n/g unless $^O eq 'MacOS';
+	$self->{SOURCE};
 }
 
 sub compiled {
-    my($self, $script) = @_;
+	my($self, $script) = @_;
 
-    $script = OSAStore(@$self{qw(COMP ID)}, typeOSAGenericStorage, 0)
-        or die $^E;
+	$script = OSAStore($self->{COMP}, $self->{ID},
+		typeOSAGenericStorage, 0)
+		or _mydie() && return;
 
-    push @{$self->{AEDESC}}, $script;
+	push @{$self->{AEDESC}}, $script;
 
-    $script->data;
+	return $script->data;
 }
 
 sub _doscript {
-    my($c, $text, $self, $return) = @_;
-    $self = _compile_script($c, $text);
-    $return = $self->execute;
-    $self->dispose;
-    $return;
+	my($c, $text) = @_;
+
+	my $self = _compile_script($c, $text) or _mydie() && return;
+	my $return = $self->execute or _mydie() && return;
+	$self->dispose;
+
+	return $return;
 }
 
 sub _load_script {
-    my($scpt, $from_file, $resid, $c, $desc, $self, $res) = @_;
+	my($scpt, $resid, $xtra) = @_;
 
-    $c = kOSAGenericScriptingComponentSubtype;
-    $self = bless {COMP => $ScriptComponents{$c},
-        TYPE => $c}, __PACKAGE__;
+	my $c = kOSAGenericScriptingComponentSubtype;
+	my $self = bless {
+		COMP => $ScriptComponents{$c},
+		TYPE => $c
+	}, __PACKAGE__;
 
-    if ($from_file) {
-        my($resc, $file);
-        $resid = defined($resid) ? $resid : 128;
-        $file = $scpt;
-        $res = FSpOpenResFile($file, 0) or die $^E;
-        $scpt = Get1Resource(kOSAScriptResourceType, $resid) or die $^E;
-    }
+	my $res;
+	if (!ref $scpt) {
+		# we used to support three-arg format; use third arg if supplied
+		$resid = defined($xtra) ? $xtra
+			: defined($resid) && $resid != 1 ? $resid
+			: 128;
+		my $file = $scpt;
+		$res = FSpOpenResFile($file, 0) or _mydie() && return;
+		$scpt = Get1Resource(kOSAScriptResourceType, $resid)
+			or _mydie() && return;
+	}
 
-    die "Data not of type Handle" unless $scpt->isa('Handle');
+	my $desc = AECreateDesc(typeOSAGenericStorage, $scpt->get)
+		or _mydie() && return;
 
-    $desc = AECreateDesc(typeOSAGenericStorage, $scpt->get) or die $^E;
+	$self->{ID} = OSALoad($self->{COMP}, $desc, 0)
+		or _mydie() && return;
 
-    $self->{ID} = OSALoad($self->{COMP}, $desc, 0) or die $^E;
+	AEDisposeDesc($desc) if $desc;
+	CloseResFile($res) if $res;
 
-    AEDisposeDesc($desc) if $desc;
-    CloseResFile($res) if $res;
-
-    $self;
+	return $self;
 }
 
 sub _compile_script {
-    my($c, $text, $comp, $script, $self) = @_;
-    $self = bless {COMP => $ScriptComponents{$c},
-        TEXT => $text, TYPE => $c}, __PACKAGE__;
-    $self->_compile;
+	my($c, $text) = @_;
+
+	my $comp = $ScriptComponents{$c} or return;
+
+	my $self = bless {
+		COMP   => $comp,
+        	SOURCE => $text,
+        	TYPE   => $c
+        }, __PACKAGE__;
+
+	return $self->_compile;
 }
 
 sub _compile {
-    my $self = shift;
-    my($text, $comp, $script, $id);
-    $self->{SCRIPT} = AECreateDesc('TEXT', $self->{TEXT}) or die $^E;
-    $self->{ID} = OSACompile($self->{COMP}, $self->{SCRIPT}, 0)
-        or die $^E;
-    $self;
+	my($self) = @_;
+
+	$self->{SCRIPT} = AECreateDesc(typeChar, $self->{SOURCE})
+		or _mydie() && return;
+
+	$self->{ID} = OSACompile($self->{COMP}, $self->{SCRIPT}, kOSAModeCompileIntoContext)
+		or _mydie() && return;
+
+	return $self;
+}
+
+sub _mydie {
+	# maybe do something here some day
+	1;
 }
 
 sub DESTROY {
-    my $self = shift;
-    if (exists($self->{ID}) || exists($self->{SCRIPT})) {
-        $self->dispose;
-    }
-    if ($self->{AEDESC}) {
-        for (@{$self->{AEDESC}}) {
-            AEDisposeDesc($_);
-        }
-    }
+	my($self) = @_;
+
+	if (exists($self->{ID}) || exists($self->{SCRIPT})) {
+		$self->dispose;
+	}
+
+	if ($self->{AEDESC}) {
+		for (@{$self->{AEDESC}}) {
+			AEDisposeDesc($_) if $_;
+		}
+	}
 }
 
 END {
-    foreach my $comp (keys %ScriptComponents) {
-        CloseComponent($ScriptComponents{$comp});
-    }
+	foreach my $comp (keys %ScriptComponents) {
+		CloseComponent($ScriptComponents{$comp});
+	}
 }
 
 package Mac::OSA::Simple::Components;
 
 BEGIN {
-    use Carp;
-    use Tie::Hash ();
-    use Mac::Components;
-    use Mac::OSA;
-    use vars qw(@ISA);
-    @ISA = qw(Tie::StdHash);
+	use Carp;
+	use Tie::Hash ();
+	use Mac::Components;
+	use Mac::OSA;
+	use vars qw(@ISA);
+	@ISA = qw(Tie::StdHash);
 }
 
 sub FETCH {
-    my($self, $comp) = @_;
-    if (!$self->{$comp}) {
-        $self->{$comp} = 
-            OpenDefaultComponent(kOSAComponentType(), $comp)
-            or die $^E;
-    }
-    $self->{$comp};
+	my($self, $comp) = @_;
+
+	my $c = $comp;
+	if ($comp eq kOSAGenericScriptingComponentSubtype) {
+		$c = 0;
+		$c++ while exists $self->{$c};  # get unique key
+	}
+
+	if (!$self->{$c}) {
+		my $comp = OpenDefaultComponent(kOSAComponentType, $comp)
+			or Mac::OSA::Simple::_mydie() && return;
+		$self->{$c} = $comp;
+	}
+	$self->{$c};
 }
 
+package Mac::OSA::Simple;  # odd "fix" for AutoSplit
 
 1;
+
 __END__
 
 =head1 NAME
@@ -213,15 +287,11 @@ Mac::OSA::Simple - Simple access to Mac::OSA
 
 =head1 DESCRIPTION
 
-    **MAJOR CHANGE**
-    Scripting component in osa_script and compile_osa_script
-    is now the first parameter, not the second.
-    Now the script text is second.
-
-You can access scripting components via the tied hash C<%ScriptComponents>
-which is automatically exported.  Components are only opened if they have not
-been already, and are closed when the program exits.  It is normally not
-necessary to use this hash, as it is accessed internally when needed.
+You can access scripting components via the tied hash
+C<%ScriptComponents> which is automatically exported.  Components are
+only opened if they have not been already, and are closed when the
+program exits.  It is normally not necessary to use this hash, as it is
+accessed internally when needed.
 
 Also usually not necessary, but possibly useful, are all the functions
 and constants from Mac::OSA, available with the EXPORT_TAG "all".
@@ -263,19 +333,20 @@ Same thing as C<compile_osa_script> with SCRIPTCOMPONENT already set.
 
 =item load_osa_script(HANDLE)
 
-=item load_osa_script(FILE, FROMFILE [, RESOURCEID])
+=item load_osa_script(FILE [, RESOURCEID])
 
-In the first form, load compiled OSA script using data in HANDLE
+In the first form, load compiled OSA script using data in Handle
 (same data as returned by C<compiled> method; see L<Mac::Memory>).
-In the second form, with FROMFILE true, gets
+In the second form, gets
 script from FILE using RESOURCEID (which is 128 by default).  Returns
 Mac::OSA::Simple object.
 
-    **NOTE**
-    This function uses FSpOpenResFile, which has a bug in it
-    that causes it to treat $ENV{MACPERL} as the current
-    directory.  For safety, always pass FILE as an absolute
-    path, for now.
+B<NOTE>: Because of a change in the parameters for this function,
+a RESOURCEID value of 1 will not be recognized as a resource ID
+(the old parameter list had a value of 1 mean "load from file").
+If you need to use a resource ID of 1, pass it in as both the
+second and third parameter.  Sorry.  Why would you use 1 for
+a resource ID, anyway??
 
 Example:
 
@@ -291,7 +362,7 @@ Example:
 Same thing:
 
     use Mac::OSA::Simple;
-    $osa = load_osa_script($file, 1);
+    $osa = load_osa_script($file);
     $osa->execute;
 
 Another example:
@@ -318,7 +389,7 @@ C<compile_osa_script> and its related functions and C<load_osa_script>.
 
 =item compiled
 
-Returns a HANDLE containing the raw compiled form of the script
+Returns a Handle containing the raw compiled form of the script
 (see L<Mac::Memory>).
 
 =item dispose
@@ -335,20 +406,39 @@ Saves script in FILE with ID and NAME.  ID defaults to 128, NAME
 defaults to "MacPerl Script".  DANGEROUS!  Will overwrite
 existing resource!
 
-    **NOTE**
-    This function uses FSpOpenResFile, which has a bug in it
-    that causes it to treat $ENV{MACPERL} as the current
-    directory.  For safety, always pass FILE as an absolute
-    path, for now.
+=item source
 
+Returns text of script source, if available.
 
 =back
 
 
-=head1 BUGS
+=head2 Script Context
 
-C<load_osa_script> function and C<save> method require absolute
-paths.  Problem in Mac::Resources itself.
+Scripts compiled by this module now compile scripts as
+I<script contexts>, which, in part, means they can maintain state
+information.  For example:
+
+	use Mac::OSA::Simple;
+	my $script = compile_applescript(<<'SCRIPT') or die $^E;
+	property foo: 20
+	set foo to foo + 1
+	SCRIPT
+	print $script->execute, "\n" for 0..2;
+
+Returns:
+	21
+	22
+	23
+
+Whereas in previous versions of this module, it would have returned:
+	21
+	21
+	21
+
+For a script that on disk, to maintain state information
+in the saved version, remember to call C<$script->save(LIST)>.
+
 
 =head1 TODO
 
@@ -366,45 +456,13 @@ Should C<save> have optional parameter for overwriting resource?
 Should C<run_osa_script> and C<execute> take arguments?  If so, how?
 
 
-=head1 HISTORY
-
-=over 4
-
-=item v0.51, Saturday, March 20, 1999
-
-Fixed silly bug in return from execute, where multiline
-return values would not return (added /s so . would match \n)
-(John Moreno E<lt>phenix@interpath.comE<gt>).
-
-=item v0.50, Friday, March 12, 1999
-
-Changed around the argument order for C<osa_script> and
-C<compile_osa_script>.
-
-Added C<load_osa_script> function.
-
-Added C<save> method.
-
-Added lots of tests.
-
-=item v0.10, Tuesday, March 9, 1999
-
-Added lots of stuff to get compiled script data.
-
-=item v0.02, May 19, 1998
-
-Here goes ...
-
-=back
-
 =head1 AUTHOR
 
-Chris Nandor F<E<lt>pudge@pobox.comE<gt>>
-http://pudge.net/
+Chris Nandor E<lt>pudge@pobox.comE<gt>, http://pudge.net/
 
-Copyright (c) 1999 Chris Nandor.  All rights reserved.  This program is free 
-software; you can redistribute it and/or modify it under the same terms as 
-Perl itself.  Please see the Perl Artistic License.
+Copyright (c) 1998-2003 Chris Nandor.  All rights reserved.  This program
+is free software; you can redistribute it and/or modify it under the same
+terms as Perl itself.
 
 =head1 SEE ALSO
 
@@ -412,6 +470,6 @@ Mac::OSA, Mac::AppleEvents, Mac::AppleEvents::Simple, macperlcat.
 
 =head1 VERSION
 
-Version 0.51 (Saturday, March 20, 1999)
+v1.02, Thursday, March 12, 2003
 
 =cut
