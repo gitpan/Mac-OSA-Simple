@@ -1,35 +1,90 @@
------BEGIN PGP SIGNED MESSAGE-----
-
-Thursday, May 28, 1998
-
-This is Mac::OSA::Simple 0.02, a simple interface to some
-Mac::OSA functions.
-
-REQUIREMENTS:
-*MacPerl 5.2.0r4+ (might work with earlier versions, untested)
+Tuesday, March 9, 1999
 
 This archive can always be obtained from:
 
-    http://pudge.net/macperl/
-    http://perl.com/CPAN/authors/id/CNANDOR/
-    http://perl.com/CPAN/modules/by-module/Mac/
+    http://www.perl.com/CPAN/authors/id/CNANDOR/
+    http://www.perl.com/CPAN/modules/by-module/Mac/
 
 The file is a tarred, gzipped file.  Use Stuffit Expander or a
-similar program to get at the archive.
+similar program (like my untargzipme) to get at the archive.
 
 Please let me know how well it does(n't) work, and any changes you'd 
 like to see.
 
------BEGIN PGP SIGNATURE-----
-Version: PGPfreeware 5.0 for non-commercial use <http://www.pgp.com>
-Charset: noconv
+#=======================================================================
 
-iQCVAwUBNW25sChcZja3bnKtAQFKYwP/dHQ0Rp5aFr+DvXx9h9HyPi9lrsXfkw2d
-gcLOKBuvfbpQ/jCr3Qt0ZbYYS49Wxo9LjYXvrZhdeOqJAS6M5mQALt+qokjY8V49
-NgiIyk08+ryvNqhUdbDhv6p73uon7tM0gAxkImEogJrQH8pqJ4lnIbmqDvpMdqT8
-V8kSaZo/IjI=
-=j9Fn
------END PGP SIGNATURE-----
+NAME
+    Mac::OSA::Simple - Simple access to Mac::OSA
+
+SYNOPSIS
+        #!perl -wl
+        use Mac::OSA::Simple;
+        osa_script(<<'EOS', 'LAND');
+          dialog.getInt ("Duration?",@examples.duration);
+          dialog.getInt ("Amplitude?",@examples.amplitude);
+          dialog.getInt ("Frequency?",@examples.frequency);
+          speaker.sound (examples.duration, examples.amplitude,
+              examples.frequency)
+        EOS
+
+        print frontier('clock.now()');
+
+        applescript('beep 3');
+
+DESCRIPTION
+    Allows simple access to Mac::OSA. Just pass the script to the function
+    for `frontier()' or `applescript()'. Or, pass the script and the four-
+    character component ID to `osa_script()'. Functions return a value if
+    there is one, or 1 if successful and there is no value.
+
+    [Hm. Should `frontier()' and/or `osa_script($script, 'LAND')' launch
+    Frontier if it is not running?]
+
+    Also note that you can get the raw data of a compiled script with:
+
+        $script = compile_applescript($script_text);
+        $raw_data = $script->compiled;
+
+    (There are also `compile_frontier' and `compile_osa_script').
+
+    `$script' there is an object with parameters like `SCRIPT' (the AEDesc
+    containing the compiled script), `COMP' (the scripting component),
+    `ID' (the script ID), and `TEXT' (the text of the script).
+
+    You can manually dispose of the OSA script and the AEDesc with
+    `$script->dispose', or let it get disposed of during object
+    destruction.
+
+    You can access scripting components via the tied hash
+    `%ScriptComponents' which is automatically exported. Components are
+    only opened if they have not been already, and are closed when the
+    program exits.
+
+TODO
+    Add OSALoad stuff so compiled scripts from resource forks etc. can
+    files can be used.
+
+HISTORY
+    v0.10, Tuesday, March 9, 1999
+        Added lots of stuff to get compiled script data.
+
+    v0.02, May 19, 1998
+        Here goes ...
+
+AUTHOR
+    Chris Nandor <pudge@pobox.com> http://pudge.net/
+
+    Copyright (c) 1999 Chris Nandor. All rights reserved. This program is
+    free software; you can redistribute it and/or modify it under the same
+    terms as Perl itself. Please see the Perl Artistic License.
+
+SEE ALSO
+    Mac::OSA, Mac::AppleEvents, Mac::AppleEvents::Simple, macperlcat.
+
+VERSION
+    Version 0.10 (Tuesday, March 9, 1999)
+
+#=======================================================================
 
 -- 
 Chris Nandor          mailto:pudge@pobox.com         http://pudge.net/
