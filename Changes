@@ -1,3 +1,8 @@
+* v1.08, Sunday, November 9, 2003
+
+   Oops, forgot Mac::AppleEvents::Simple in PREREQ
+
+
 * v1.07, Sunday, November 9, 2003
 
    Fix for changed file format in Panther's Script Editor.

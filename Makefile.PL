@@ -9,6 +9,7 @@ WriteMakefile(
     		'Mac::Memory'      => 1.22,
     		'Mac::OSA'         => 1.03,
     		'Mac::Resources'   => 1.03,
+    		'Mac::AppleEvents::Simple' => 1.08,
     		'Test::More'       => 0,
 	},
 	'clean'			=> {
