@@ -1,3 +1,9 @@
+* v1.04, Monday, April 21, 2003
+
+   Add support for saving/loading compiled AppleScripts as data in data fork
+   instead of resource in resource fork on Mac OS X, for compatability with
+   the Mac OS X Script Editor.
+
 * v1.03, Thursday, March 12, 2003
 
    Tests broken mildly on most systems; corrected.

@@ -10,11 +10,13 @@ use vars qw(
 use Carp;
 use Exporter;
 
+use File::Basename;
+use MacPerl ();
 use Mac::AppleEvents;
 use Mac::Components;
 use Mac::Memory;
 use Mac::OSA;
-use Mac::Resources;
+use Mac::Resources 1.03;
 
 @ISA = qw(Exporter);
 @EXPORT = qw(
@@ -25,8 +27,8 @@ use Mac::Resources;
 @EXPORT_OK = @Mac::OSA::EXPORT;
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.2 2003/03/13 14:11:27 pudge Exp $';
-$VERSION = '1.03';
+$REVISION = '$Id: Simple.pm,v 1.3 2003/04/22 00:52:45 pudge Exp $';
+$VERSION = '1.04';
 
 tie %ScriptComponents, 'Mac::OSA::Simple::Components';
 
@@ -67,6 +69,7 @@ sub dispose {
 	if ($self->{ID} && $self->{COMP}) {
 		OSADispose($self->{COMP}, $self->{ID});
 		delete $self->{ID};
+		delete $self->{COMP};
 	}
 
 	if ($self->{SCRIPT}) {
@@ -81,31 +84,36 @@ sub save {
 	my($self, $file, $resid, $name) = @_;
 
 	my $scpt = $self->compiled or _mydie() && return;
+	$self->{FILETYPE} ||= $^O eq 'MacOS' ? 'rsrc' : 'data';
 
-	$resid = defined($resid) ? $resid : 128;
-	$name  = defined($name)  ? $name  : 'MacPerl Script';
-
-	# this sucks; fix GUSI* routines
 	my $res;
-	unless (-e $file) {
+	if (($self->{FILETYPE} && $self->{FILETYPE} eq 'rsrc') || (!$self->{FILETYPE} && $^O eq 'MacOS')) {
+		$resid = defined($resid) ? $resid : ($self->{RESID} || 128);
+		$name  = defined($name)  ? $name  : 'MacPerl Script';
+
+		unless ($res = FSpOpenResFile($file, 0)) {
+			FSpCreateResFile($file, 'ToyS', 'osas', 0) or _mydie() && return;
+			$res = FSpOpenResFile($file, 0) or _mydie() && return;
+		}
+
+		my $foo = Get1Resource(kOSAScriptResourceType, $resid);
+		if (defined $foo) {
+			RemoveResource($foo) or _mydie() && return;
+		}
+
+		AddResource($scpt, kOSAScriptResourceType, $resid, $name)
+			or _mydie() && return;
+
+		UpdateResFile($res) or _mydie() && return;
+		CloseResFile($res);
+
+	} else {
+		local $\;
 		open my $fh, '>', $file;
+		print $fh $scpt->get;
 		close $fh;
+		MacPerl::SetFileInfo('ToyS', 'osas', $file);
 	}
-	unless ($res = FSpOpenResFile($file, 0)) {
-		FSpCreateResFile($file, 'ToyS', 'osas', 0) or _mydie() && return;
-		$res = FSpOpenResFile($file, 0) or _mydie() && return;
-	}
-
-	my $foo = Get1Resource(kOSAScriptResourceType, $resid);
-	if (defined $foo) {
-		RemoveResource($foo) or _mydie() && return;
-	}
-
-	AddResource($scpt, kOSAScriptResourceType, $resid, $name)
-		or _mydie() && return;
-
-	UpdateResFile($res) or _mydie() && return;
-	CloseResFile($res);
 
 	return 1;
 }
@@ -163,9 +171,28 @@ sub _load_script {
 			: defined($resid) && $resid != 1 ? $resid
 			: 128;
 		my $file = $scpt;
-		$res = FSpOpenResFile($file, 0) or _mydie() && return;
-		$scpt = Get1Resource(kOSAScriptResourceType, $resid)
-			or _mydie() && return;
+
+		if ($^O eq 'MacOS') {
+			$res = FSpOpenResFile($file, 0) or _mydie() && return;
+		} else {
+			unless ($res = FSpOpenResFile($file, 0)) {
+				open my $fh, '<', $file or _mydie() && return;
+				$scpt = new Handle do {
+					local $/;
+					<$fh>;
+				};
+			}
+		}
+
+		if ($res) {
+			$scpt = Get1Resource(kOSAScriptResourceType, $resid)
+				or _mydie() && return;
+			$self->{FILETYPE} = 'rsrc';
+			$self->{RESID}    = $resid;
+		} else {
+			$self->{FILETYPE} = 'data';
+			$self->{RESID}    = undef;
+		}
 	}
 
 	my $desc = AECreateDesc(typeOSAGenericStorage, $scpt->get)
@@ -223,6 +250,8 @@ sub DESTROY {
 			AEDisposeDesc($_) if $_;
 		}
 	}
+
+	undef $self;
 }
 
 END {
@@ -295,6 +324,18 @@ accessed internally when needed.
 
 Also usually not necessary, but possibly useful, are all the functions
 and constants from Mac::OSA, available with the EXPORT_TAG "all".
+
+B<NOTE>: Examples below show use of $^E.  On Mac OS, this will return the
+signed Mac OS error number in numeric context, and the Mac OS error message
+in string context.  But on Mac OS X, $^E support is unimplemented.  $! and $^E
+will both return the I<unsigned> error number.  You can get the correct error
+number by adding 0 (such as C<$! + 0>), and you can use L<Mac::Errors> to get
+the error text (this will also work under Mac OS):
+
+	use Mac::Errors '$MacError';
+	my $res = FSpOpenResFile($file, 0) or die $MacError;
+
+See L<Mac::Errors> on the CPAN for more information.
 
 
 =head2 Functions
@@ -405,6 +446,12 @@ Executes script.  Can be executed more than once.
 Saves script in FILE with ID and NAME.  ID defaults to 128, NAME
 defaults to "MacPerl Script".  DANGEROUS!  Will overwrite
 existing resource!
+
+Saves to the data fork instead on Mac OS X, unless an ID is provided.
+
+The context used to load a script from disk (resource fork vs. data fork,
+resource file vs. data file) will be used to save the script back, if
+applicable, so the file's format will be preserved.
 
 =item source
 

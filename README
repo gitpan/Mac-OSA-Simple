@@ -3,11 +3,6 @@ via Mac::OSA (part of the Mac::Carbon distribution).  It allows
 compiling of OSA scripts using any OSA language, as well as execution,
 saving to disk, and loading.
 
-This release features a few bugfixes, some cleanup, and Mac OS X support.
-
-It also changes the arguments for load_osa_script().  See Changes for more
-information.
-
 This archive can always be obtained from:
 
     http://sf.net/projects/pudge/

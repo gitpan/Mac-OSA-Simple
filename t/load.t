@@ -35,7 +35,11 @@ EOS
 	ok($osa1->save($file), "save");
 
 	ok(-e $file,   "file exists");
-	ok(! -s $file, "no data fork");
+	if ($^O eq 'MacOS') {
+		ok(! -s $file, "no data fork");
+	} else {
+		is(-s $file, length($osa1->compiled->get), "data fork is length of handle data");
+	}
 
 	my $osa2 = load_osa_script($osa1->compiled);
 	ok($osa2,             "clone");
