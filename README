@@ -1,0 +1,36 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+
+Thursday, May 28, 1998
+
+This is Mac::OSA::Simple 0.02, a simple interface to some
+Mac::OSA functions.
+
+REQUIREMENTS:
+*MacPerl 5.2.0r4+ (might work with earlier versions, untested)
+
+This archive can always be obtained from:
+
+    http://pudge.net/macperl/
+    http://perl.com/CPAN/authors/id/CNANDOR/
+    http://perl.com/CPAN/modules/by-module/Mac/
+
+The file is a tarred, gzipped file.  Use Stuffit Expander or a
+similar program to get at the archive.
+
+Please let me know how well it does(n't) work, and any changes you'd 
+like to see.
+
+-----BEGIN PGP SIGNATURE-----
+Version: PGPfreeware 5.0 for non-commercial use <http://www.pgp.com>
+Charset: noconv
+
+iQCVAwUBNW25sChcZja3bnKtAQFKYwP/dHQ0Rp5aFr+DvXx9h9HyPi9lrsXfkw2d
+gcLOKBuvfbpQ/jCr3Qt0ZbYYS49Wxo9LjYXvrZhdeOqJAS6M5mQALt+qokjY8V49
+NgiIyk08+ryvNqhUdbDhv6p73uon7tM0gAxkImEogJrQH8pqJ4lnIbmqDvpMdqT8
+V8kSaZo/IjI=
+=j9Fn
+-----END PGP SIGNATURE-----
+
+-- 
+Chris Nandor          mailto:pudge@pobox.com         http://pudge.net/
+%PGPKey = ('B76E72AD', [1024, '0824090B CE73CA10  1FF77F13 8180B6B6'])
