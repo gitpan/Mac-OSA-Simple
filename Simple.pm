@@ -12,10 +12,11 @@ use Exporter;
 
 use File::Basename;
 use MacPerl ();
-use Mac::AppleEvents;
+use Mac::AppleEvents::Simple ':all';
 use Mac::Components;
 use Mac::Memory;
-use Mac::OSA;
+use Mac::OSA 1.03;
+use Mac::Processes;
 use Mac::Resources 1.03;
 
 @ISA = qw(Exporter);
@@ -27,8 +28,8 @@ use Mac::Resources 1.03;
 @EXPORT_OK = @Mac::OSA::EXPORT;
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.3 2003/04/22 00:52:45 pudge Exp $';
-$VERSION = '1.04';
+$REVISION = '$Id: Simple.pm,v 1.4 2003/06/25 05:10:38 pudge Exp $';
+$VERSION = '1.05';
 
 tie %ScriptComponents, 'Mac::OSA::Simple::Components';
 
@@ -61,6 +62,35 @@ sub execute {
 	AEDisposeDesc($return) if $return;
 
 	return $self->{RETURN};
+}
+
+{ my $target; # define only once
+sub call {
+	my($self, $cid, $eid, $args, $mode) = @_;
+	$mode = kOSAModeNull unless defined $mode;
+
+	$target ||= { typeProcessSerialNumber() => kCurrentProcess() };
+
+	my $format;
+	if (ref($args) eq 'ARRAY') { # no record support yet
+		$format = '[';
+		$format .= join(', ', map { 'TEXT(@)' } 1 .. @$args);
+		$format .= ']';
+	} elsif (! ref($args)) {
+		$format = 'TEXT(@)';
+		$args = [ $args ];
+	} else {
+		carp "Only scalars and lists supported in call()";
+	}
+
+	my $event = build_event($cid, $eid, $target, "'----':$format", @$args);
+
+	$event->{REP} = OSADoEvent(
+		$self->{COMP}, $event->{EVT}, $self->{ID}, $mode
+	) or _mydie() && return;
+
+	return $event->get;
+}
 }
 
 sub dispose {
@@ -441,11 +471,42 @@ Disposes of OSA script.  Done automatically if not called explicitly.
 
 Executes script.  Can be executed more than once.
 
+=item call(CLASS, EVENT, ARGS, MODE)
+
+Calls a handler in the script, identified by CLASS and EVENT IDs.
+Can be executed more than once.
+
+ARGS can be either a scalar or an arrayref.  MODE can be any combination
+of modes from L<Mac::OSA> listed under the "Mode flags" constants.
+
+Here is an example script:
+
+	on \xC7event abcd1234E\xC8 (filename)
+	    tell app "Finder"
+	       return [URL of file filename, creator type of file filename]
+	    end
+	end
+
+"abcd" is the CLASS ID, and "1234" is the EVENT ID.  They can be anything, as
+long as they don't conflict with something else.  The characters \xC7 and \xC8
+can be literal if in the Mac Roman charset, otherwise just use the values like
+above.
+
+Parameters are passed to handlers as named values, like "(filename)".  Multiple
+parameters can be passed as an arrayref in ARGS, and a list of values is returned:
+
+	my $script = load_osa_script($path_to_script);
+	my($url, $creator) = $script->call(qw[abcd 1234], "my file");
+
+You must pass in the same number of variables in ARGS that are expected by the
+handler.
+
+
 =item save(FILE [, ID [, NAME]])
 
 Saves script in FILE with ID and NAME.  ID defaults to 128, NAME
 defaults to "MacPerl Script".  DANGEROUS!  Will overwrite
-existing resource!
+existing resource or file!
 
 Saves to the data fork instead on Mac OS X, unless an ID is provided.
 
@@ -517,6 +578,6 @@ Mac::OSA, Mac::AppleEvents, Mac::AppleEvents::Simple, macperlcat.
 
 =head1 VERSION
 
-v1.02, Thursday, March 12, 2003
+v1.05, Tuesday, June 24, 2003
 
 =cut
