@@ -16,7 +16,7 @@ SKIP: {
 	my $comp = 'Shll';
 
 	if (!$Mac::OSA::Simple::ScriptComponents{$comp}) {
-		skip "OSA script component '$comp' not installed", 2;
+		skip "OSA script component '$comp' not installed", 3;
 	}
 
 	my $osa = compile_osa_script($comp, 'ls');

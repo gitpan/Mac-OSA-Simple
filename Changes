@@ -1,3 +1,8 @@
+* v1.03, Thursday, March 12, 2003
+
+   Tests broken mildly on most systems; corrected.
+
+
 * v1.02, Thursday, March 12, 2003
 
    Added Mac OS X support (see Mac::Carbon).

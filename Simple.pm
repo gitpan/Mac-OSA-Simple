@@ -25,8 +25,8 @@ use Mac::Resources;
 @EXPORT_OK = @Mac::OSA::EXPORT;
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.1.1.1 2003/03/13 05:12:35 pudge Exp $';
-$VERSION = '1.02';
+$REVISION = '$Id: Simple.pm,v 1.2 2003/03/13 14:11:27 pudge Exp $';
+$VERSION = '1.03';
 
 tie %ScriptComponents, 'Mac::OSA::Simple::Components';
 

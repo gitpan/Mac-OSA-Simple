@@ -16,7 +16,7 @@ SKIP: {
 	my $comp = 'Jscr';
 
 	if (!$Mac::OSA::Simple::ScriptComponents{$comp}) {
-		skip "OSA script component '$comp' not installed", 2;
+		skip "OSA script component '$comp' not installed", 3;
 	}
 
 	my $script = 'myList = new Array ("foo", "bar", "baz");';
