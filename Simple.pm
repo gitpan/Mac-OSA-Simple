@@ -6,26 +6,30 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS
 use Mac::Components;
 use Mac::OSA;
 use Mac::AppleEvents;
+use Mac::Resources;
+use Mac::Memory;
 use Exporter;
 use Carp;
 
 @ISA = qw(Exporter AutoLoader);
-@EXPORT = qw(compiled frontier applescript osa_script
+@EXPORT = qw(frontier applescript osa_script
     compile_applescript compile_frontier compile_osa_script
-    %ScriptComponents);
+    load_osa_script %ScriptComponents);
 @EXPORT_OK = @Mac::OSA::EXPORT;
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
-$VERSION = '0.10';
+$VERSION = '0.50';
 
 tie %ScriptComponents, 'Mac::OSA::Simple::Components';
 
-sub frontier            { _doscript($_[0], 'LAND') }
-sub applescript         { _doscript($_[0], 'ascr') }
-sub osa_script          { _doscript(@_[0, 1])      }
+sub frontier            { _doscript('LAND', $_[0])          }
+sub applescript         { _doscript('ascr', $_[0])          }
+sub osa_script          { _doscript(@_[0, 1])               }
 
-sub compile_frontier    { _compile_script($_[0], 'LAND') }
-sub compile_applescript { _compile_script($_[0], 'ascr') }
-sub compile_osa_script  { _compile_script(@_[0, 1])      }
+sub compile_frontier    { _compile_script('LAND', $_[0])    }
+sub compile_applescript { _compile_script('ascr', $_[0])    }
+sub compile_osa_script  { _compile_script(@_[0, 1])         }
+
+sub load_osa_script     { _load_script(@_[0, 1, 2])         }
 
 sub execute {
     my($self, $value, $return) = ($_[0], '', '');
@@ -33,7 +37,7 @@ sub execute {
     $value = OSAExecute($self->{COMP}, $self->{ID}, 0, 0);
     if ($value) {
         $return = OSADisplay($self->{COMP}, $value, 'TEXT', 0)
-            or croak $^E;
+            or die $^E;
         OSADispose($self->{COMP}, $value);
     }
     ($self->{RETURN}) = ($return ? (AEPrint($return) =~ /^Ò(.*)Ó$/) : 1);
@@ -53,35 +57,93 @@ sub dispose {
     1;
 }
 
-sub compiled {
-    my($self, $script, $data) = @_;
-    $script = OSAStore(@$self{qw(COMP ID)}, 'scpt', 0) or croak $^E;
-    $data = $script->data->get;
-    AEDisposeDesc $script;
-    $data;
+sub save {
+    my($self, $file, $resid, $name, $len, $scpt, $res, $foo) = @_;
+
+    $scpt = $self->compiled or die $^E;
+
+    $resid = defined($resid) ? $resid : 128;
+    $name  = defined($name)  ? $name  : 'MacPerl Script';
+
+    unless (-e $file) {
+        CreateResFile($file) or die $^E;
+        MacPerl::SetFileInfo('ToyS', 'osas', $file);
+    }
+
+    $res = FSpOpenResFile($file, 0) or die $^E;
+    $foo = Get1Resource(kOSAScriptResourceType, $resid);
+    if (defined $foo) {
+        RemoveResource($foo) or die $^E;
+    }
+
+    AddResource($scpt, kOSAScriptResourceType, 128, $name)
+        or die $^E;
+
+    UpdateResFile($res) or die $^E;
+    CloseResFile($res);
+
+    1;
 }
 
-sub _compile_script {
-    my($text, $c, $comp, $script, $self) = @_;
-    $self = bless {COMP => $ScriptComponents{$c},
-        TEXT => $text, TYPE => $c}, __PACKAGE__;
-    $self->_compile;
+sub compiled {
+    my($self, $script) = @_;
+
+    $script = OSAStore(@$self{qw(COMP ID)}, typeOSAGenericStorage, 0)
+        or die $^E;
+
+    push @{$self->{AEDESC}}, $script;
+
+    $script->data;
 }
 
 sub _doscript {
-    my($text, $c, $self, $return) = @_;
-    $self = _compile_script($text, $c);
+    my($c, $text, $self, $return) = @_;
+    $self = _compile_script($c, $text);
     $return = $self->execute;
     $self->dispose;
     $return;
 }
 
+sub _load_script {
+    my($scpt, $from_file, $resid, $c, $desc, $self, $res) = @_;
+
+    $c = kOSAGenericScriptingComponentSubtype;
+    $self = bless {COMP => $ScriptComponents{$c},
+        TYPE => $c}, __PACKAGE__;
+
+    if ($from_file) {
+        my($resc, $file);
+        $resid = defined($resid) ? $resid : 128;
+        $file = $scpt;
+        $res = FSpOpenResFile($file, 0) or die $^E;
+        $scpt = Get1Resource(kOSAScriptResourceType, $resid) or die $^E;
+    }
+
+    die "Data not of type Handle" unless $scpt->isa('Handle');
+
+    $desc = AECreateDesc(typeOSAGenericStorage, $scpt->get) or die $^E;
+
+    $self->{ID} = OSALoad($self->{COMP}, $desc, 0) or die $^E;
+
+    AEDisposeDesc($desc) if $desc;
+    CloseResFile($res) if $res;
+
+    $self;
+}
+
+sub _compile_script {
+    my($c, $text, $comp, $script, $self) = @_;
+    $self = bless {COMP => $ScriptComponents{$c},
+        TEXT => $text, TYPE => $c}, __PACKAGE__;
+    $self->_compile;
+}
+
 sub _compile {
     my $self = shift;
-    my($text, $comp, $script, $id) = @_;
-    $self->{SCRIPT} = AECreateDesc('TEXT', $self->{TEXT}) or croak $^E;
+    my($text, $comp, $script, $id);
+    $self->{SCRIPT} = AECreateDesc('TEXT', $self->{TEXT}) or die $^E;
     $self->{ID} = OSACompile($self->{COMP}, $self->{SCRIPT}, 0)
-        or croak $^E;
+        or die $^E;
     $self;
 }
 
@@ -89,6 +151,11 @@ sub DESTROY {
     my $self = shift;
     if (exists($self->{ID}) || exists($self->{SCRIPT})) {
         $self->dispose;
+    }
+    if ($self->{AEDESC}) {
+        for (@{$self->{AEDESC}}) {
+            AEDisposeDesc($_);
+        }
     }
 }
 
@@ -114,7 +181,7 @@ sub FETCH {
     if (!$self->{$comp}) {
         $self->{$comp} = 
             OpenDefaultComponent(kOSAComponentType(), $comp)
-            or croak $^E;
+            or die $^E;
     }
     $self->{$comp};
 }
@@ -131,7 +198,7 @@ Mac::OSA::Simple - Simple access to Mac::OSA
 
     #!perl -wl
     use Mac::OSA::Simple;
-    osa_script(<<'EOS', 'LAND');
+    osa_script('LAND', <<'EOS');
       dialog.getInt ("Duration?",@examples.duration);
       dialog.getInt ("Amplitude?",@examples.amplitude);
       dialog.getInt ("Frequency?",@examples.frequency);
@@ -145,42 +212,167 @@ Mac::OSA::Simple - Simple access to Mac::OSA
 
 =head1 DESCRIPTION
 
-Allows simple access to Mac::OSA.  Just pass the script to the function
-for C<frontier()> or C<applescript()>.  Or, pass the script and the
-four-character component ID to C<osa_script()>.   Functions return a
-value if there is one, or 1 if successful and there is no value.
-
-[Hm.  Should C<frontier()> and/or C<osa_script($script, 'LAND')> launch
-Frontier if it is not running?]
-
-Also note that you can get the raw data of a compiled script with:
-
-    $script = compile_applescript($script_text);
-    $raw_data = $script->compiled;
-
-(There are also C<compile_frontier> and C<compile_osa_script>).
-
-C<$script> there is an object with parameters like C<SCRIPT> (the
-AEDesc containing the compiled script), C<COMP> (the scripting component),
-C<ID> (the script ID), and C<TEXT> (the text of the script).
-
-You can manually dispose of the OSA script and the AEDesc with
-C<$script-E<gt>dispose>, or let it get disposed of during object destruction.
+    **MAJOR CHANGE**
+    Scripting component in osa_script and compile_osa_script
+    is now the first parameter, not the second.
+    Now the script text is second.
 
 You can access scripting components via the tied hash C<%ScriptComponents>
 which is automatically exported.  Components are only opened if they have not
-been already, and are closed when the program exits.
+been already, and are closed when the program exits.  It is normally not
+necessary to use this hash, as it is accessed internally when needed.
 
+Also usually not necessary, but possibly useful, are all the functions
+and constants from Mac::OSA, available with the EXPORT_TAG "all".
+
+
+=head2 Functions
+
+The following functions are automatically exported.
+
+=over 4
+
+=item osa_script(SCRIPTCOMPONENT, SCRIPTTEXT)
+
+Compiles and executes SCRIPTTEXT, using four-char SCRIPTCOMPONENT.
+Component is opened and closed behind the scenes, and SCRIPTTEXT
+is compiled, executed, and disposed of behind the scenes.  If
+the script returns data, the function returns the data, else it
+returns 1 or undef on failure.
+
+=item applescript(SCRIPTTEXT)
+
+=item frontier(SCRIPTTEXT)
+
+Same thing as C<osa_script> with SCRIPTCOMPONENT already set
+('ascr' for AppleScript, 'LAND' for Frontier).
+
+
+=item compile_osa_script(SCRIPTCOMPONENT, SCRIPTTEXT)
+
+Compiles script as C<osa_script> above, but does not execute it.
+Returns Mac::OSA::Simple object.  See L<"Methods"> for more information.
+
+=item compile_applescript(SCRIPTTEXT)
+
+=item compile_frontier(SCRIPTTEXT)
+
+Same thing as C<compile_osa_script> with SCRIPTCOMPONENT already set.
+
+
+=item load_osa_script(HANDLE)
+
+=item load_osa_script(FILE, FROMFILE [, RESOURCEID])
+
+In the first form, load compiled OSA script using data in HANDLE
+(same data as returned by C<compiled> method; see L<Mac::Memory>).
+In the second form, with FROMFILE true, gets
+script from FILE using RESOURCEID (which is 128 by default).  Returns
+Mac::OSA::Simple object.
+
+    **NOTE**
+    This function uses FSpOpenResFile, which has a bug in it
+    that causes it to treat $ENV{MACPERL} as the current
+    directory.  For safety, always pass FILE as an absolute
+    path, for now.
+
+Example:
+
+    use Mac::OSA::Simple qw(:all);
+    use Mac::Resources;
+    $res = FSpOpenResFile($file, 0) or die $^E;
+    $scpt = Get1Resource(kOSAScriptResourceType, 128)
+        or die $^E;
+    $osa = load_osa_script($scpt);
+    $osa->execute;
+    CloseResFile($res);
+
+Same thing:
+
+    use Mac::OSA::Simple;
+    $osa = load_osa_script($file, 1);
+    $osa->execute;
+
+Another example:
+
+    use Mac::OSA::Simple;
+    $osa1 = compile_applecript('return "foo"');
+    print $osa1->execute;
+
+    # make copy of script in $osa1 and execute it
+    $osa2 = load_osa_script($osa1->compiled);
+    print $osa2->execute;
+
+See L<"Methods"> for more information.
+
+=back
+
+
+=head2 Methods
+
+This section describes methods for use on objects returned by
+C<compile_osa_script> and its related functions and C<load_osa_script>.
+
+=over 4
+
+=item compiled
+
+Returns a HANDLE containing the raw compiled form of the script
+(see L<Mac::Memory>).
+
+=item dispose
+
+Disposes of OSA script.  Done automatically if not called explicitly.
+
+=item execute
+
+Executes script.  Can be executed more than once.
+
+=item save(FILE [, ID [, NAME]])
+
+Saves script in FILE with ID and NAME.  ID defaults to 128, NAME
+defaults to "MacPerl Script".  DANGEROUS!  Will overwrite
+existing resource!
+
+    **NOTE**
+    This function uses FSpOpenResFile, which has a bug in it
+    that causes it to treat $ENV{MACPERL} as the current
+    directory.  For safety, always pass FILE as an absolute
+    path, for now.
+
+
+=back
+
+
+=head1 BUGS
+
+C<load_osa_script> function and C<save> method require absolute
+paths.  Problem in Mac::Resources itself.
 
 =head1 TODO
 
-Add OSALoad stuff so compiled scripts from resource forks etc.
-can files can be used.
+Work on error handling.  We don't want to die when a toolbox function
+fails.  We'd rather return undef and have the user check $^E.
+
+Should C<frontier()> and/or C<osa_script('LAND', $script)> launch
+Frontier if it is not running?
+
 
 
 =head1 HISTORY
 
 =over 4
+
+=item v0.50, Friday, March 12, 1999
+
+Changed around the argument order for C<osa_script> and
+C<compile_osa_script>.
+
+Added C<load_osa_script> function.
+
+Added C<save> method.
+
+Added lots of tests.
 
 =item v0.10, Tuesday, March 9, 1999
 
@@ -207,6 +399,6 @@ Mac::OSA, Mac::AppleEvents, Mac::AppleEvents::Simple, macperlcat.
 
 =head1 VERSION
 
-Version 0.10 (Tuesday, March 9, 1999)
+Version 0.50 (Friday, March 12, 1999)
 
 =cut
