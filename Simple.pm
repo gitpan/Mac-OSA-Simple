@@ -17,7 +17,7 @@ use Carp;
     load_osa_script %ScriptComponents);
 @EXPORT_OK = @Mac::OSA::EXPORT;
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
-$VERSION = '0.50';
+$VERSION = '0.51';
 
 tie %ScriptComponents, 'Mac::OSA::Simple::Components';
 
@@ -40,7 +40,8 @@ sub execute {
             or die $^E;
         OSADispose($self->{COMP}, $value);
     }
-    ($self->{RETURN}) = ($return ? (AEPrint($return) =~ /^Ò(.*)Ó$/) : 1);
+    ($self->{RETURN}) = ($return ? (AEPrint($return) =~ /^Ò(.*)Ó$/s) : 1);
+    AEDisposeDesc($return) if $return;
     $self->{RETURN};
 }
 
@@ -296,7 +297,7 @@ Same thing:
 Another example:
 
     use Mac::OSA::Simple;
-    $osa1 = compile_applecript('return "foo"');
+    $osa1 = compile_applescript('return "foo"');
     print $osa1->execute;
 
     # make copy of script in $osa1 and execute it
@@ -354,14 +355,26 @@ paths.  Problem in Mac::Resources itself.
 Work on error handling.  We don't want to die when a toolbox function
 fails.  We'd rather return undef and have the user check $^E.
 
-Should C<frontier()> and/or C<osa_script('LAND', $script)> launch
+Should C<frontier> and/or C<osa_script('LAND', $script)> launch
 Frontier if it is not running?
 
+Add C<run_osa_script>, which could take script data in a Handle or
+a path to a script (as with C<load_osa_script>.
+
+Should C<save> have optional parameter for overwriting resource?
+
+Should C<run_osa_script> and C<execute> take arguments?  If so, how?
 
 
 =head1 HISTORY
 
 =over 4
+
+=item v0.51, Saturday, March 20, 1999
+
+Fixed silly bug in return from execute, where multiline
+return values would not return (added /s so . would match \n)
+(John Moreno E<lt>phenix@interpath.comE<gt>).
 
 =item v0.50, Friday, March 12, 1999
 
@@ -399,6 +412,6 @@ Mac::OSA, Mac::AppleEvents, Mac::AppleEvents::Simple, macperlcat.
 
 =head1 VERSION
 
-Version 0.50 (Friday, March 12, 1999)
+Version 0.51 (Saturday, March 20, 1999)
 
 =cut

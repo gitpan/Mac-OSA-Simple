@@ -1,6 +1,6 @@
-Friday, March 12, 1999
+Saturday, March 20, 1999
 
-**MAJOR CHANGE** in interface.  See docs below.
+**MAJOR CHANGE** in interface from 0.51.  See docs below.
 
 This archive can always be obtained from:
 
@@ -108,7 +108,7 @@ DESCRIPTION
         Another example:
 
             use Mac::OSA::Simple;
-            $osa1 = compile_applecript('return "foo"');
+            $osa1 = compile_applescript('return "foo"');
             print $osa1->execute;
 
             # make copy of script in $osa1 and execute it
@@ -152,10 +152,22 @@ TODO
     Work on error handling. We don't want to die when a toolbox function
     fails. We'd rather return undef and have the user check $^E.
 
-    Should `frontier()' and/or `osa_script('LAND', $script)' launch
-    Frontier if it is not running?
+    Should `frontier' and/or `osa_script('LAND', $script)' launch Frontier
+    if it is not running?
+
+    Add `run_osa_script', which could take script data in a Handle or a
+    path to a script (as with `load_osa_script'.
+
+    Should `save' have optional parameter for overwriting resource?
+
+    Should `run_osa_script' and `execute' take arguments? If so, how?
 
 HISTORY
+    v0.51, Saturday, March 20, 1999
+        Fixed silly bug in return from execute, where multiline return
+        values would not return (added /s so . would match \n) (John
+        Moreno <phenix@interpath.com>).
+
     v0.50, Friday, March 12, 1999
         Changed around the argument order for `osa_script' and
         `compile_osa_script'.
@@ -183,7 +195,7 @@ SEE ALSO
     Mac::OSA, Mac::AppleEvents, Mac::AppleEvents::Simple, macperlcat.
 
 VERSION
-    Version 0.50 (Friday, March 12, 1999)
+    Version 0.51 (Saturday, March 20, 1999)
 
 #=======================================================================
 
