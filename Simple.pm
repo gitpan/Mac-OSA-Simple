@@ -28,8 +28,8 @@ use Mac::Resources 1.03;
 @EXPORT_OK = @Mac::OSA::EXPORT;
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.5 2003/06/25 14:48:39 pudge Exp $';
-$VERSION = '1.06';
+$REVISION = '$Id: Simple.pm,v 1.7 2003/11/09 18:05:58 pudge Exp $';
+$VERSION = '1.07';
 
 tie %ScriptComponents, 'Mac::OSA::Simple::Components';
 
@@ -201,11 +201,17 @@ sub _load_script {
 			: defined($resid) && $resid != 1 ? $resid
 			: 128;
 		my $file = $scpt;
+		undef $scpt;
 
 		if ($^O eq 'MacOS') {
 			$res = FSpOpenResFile($file, 0) or _mydie() && return;
+			$scpt = Get1Resource(kOSAScriptResourceType, $resid)
+				or _mydie() && return;
 		} else {
-			unless ($res = FSpOpenResFile($file, 0)) {
+			$res = FSpOpenResFile($file, 0);
+			$scpt = Get1Resource(kOSAScriptResourceType, $resid) if $res;
+
+			if (!$scpt) {
 				open my $fh, '<', $file or _mydie() && return;
 				$scpt = new Handle do {
 					local $/;
@@ -215,8 +221,6 @@ sub _load_script {
 		}
 
 		if ($res) {
-			$scpt = Get1Resource(kOSAScriptResourceType, $resid)
-				or _mydie() && return;
 			$self->{FILETYPE} = 'rsrc';
 			$self->{RESID}    = $resid;
 		} else {
@@ -300,6 +304,21 @@ BEGIN {
 	use vars qw(@ISA);
 	@ISA = qw(Tie::StdHash);
 }
+
+# { # if we don't do this, we fail if we fork ... weird
+# 	my $x = 0;
+# 	1 while ($x = FindNextComponent($x, kOSAComponentType));
+# }
+# 
+# sub FETCH {
+# 	my($self, $comp) = @_;
+# 	if ($self->{pid}) {
+# 		if ($self->{pid} != $$) {
+# 			delete @{$self}{keys %$self};
+# 		}
+# 	} else {
+# 		$self->{pid} = $$;
+# 	}
 
 sub FETCH {
 	my($self, $comp) = @_;
@@ -578,6 +597,6 @@ Mac::OSA, Mac::AppleEvents, Mac::AppleEvents::Simple, macperlcat.
 
 =head1 VERSION
 
-v1.06, Wednesday, June 25, 2003
+v1.07, Wednesday, November 9, 2003
 
 =cut
