@@ -7,7 +7,7 @@ WriteMakefile(
     		'Mac::AppleEvents' => 1.25,
     		'Mac::Components'  => 1.02,
     		'Mac::Memory'      => 1.22,
-    		'Mac::OSA'         => 1.02,
+    		'Mac::OSA'         => 1.03,
     		'Mac::Resources'   => 1.03,
     		'Test::More'       => 0,
 	},

@@ -1,3 +1,13 @@
+* v1.06, Wednesday, June 25, 2003
+
+   Fix PREREQ.
+
+
+* v1.05, Tuesday, June 24, 2003
+
+   Added call().
+
+
 * v1.04, Monday, April 21, 2003
 
    Add support for saving/loading compiled AppleScripts as data in data fork

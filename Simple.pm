@@ -28,8 +28,8 @@ use Mac::Resources 1.03;
 @EXPORT_OK = @Mac::OSA::EXPORT;
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.4 2003/06/25 05:10:38 pudge Exp $';
-$VERSION = '1.05';
+$REVISION = '$Id: Simple.pm,v 1.5 2003/06/25 14:48:39 pudge Exp $';
+$VERSION = '1.06';
 
 tie %ScriptComponents, 'Mac::OSA::Simple::Components';
 
@@ -578,6 +578,6 @@ Mac::OSA, Mac::AppleEvents, Mac::AppleEvents::Simple, macperlcat.
 
 =head1 VERSION
 
-v1.05, Tuesday, June 24, 2003
+v1.06, Wednesday, June 25, 2003
 
 =cut
