@@ -29,7 +29,7 @@ use Mac::Resources 1.03;
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
 $REVISION = '$Id: Simple.pm,v 1.8 2003/11/09 18:38:21 pudge Exp $';
-$VERSION = '1.08';
+$VERSION = '1.09';
 
 tie %ScriptComponents, 'Mac::OSA::Simple::Components';
 
@@ -179,7 +179,8 @@ sub _doscript {
 	my($c, $text) = @_;
 
 	my $self = _compile_script($c, $text) or _mydie() && return;
-	my $return = $self->execute or _mydie() && return;
+	my $return = $self->execute;
+	_mydie() && return unless defined $return;
 	$self->dispose;
 
 	return $return;
@@ -594,9 +595,5 @@ terms as Perl itself.
 =head1 SEE ALSO
 
 Mac::OSA, Mac::AppleEvents, Mac::AppleEvents::Simple, macperlcat.
-
-=head1 VERSION
-
-v1.08, Wednesday, November 9, 2003
 
 =cut

@@ -15,4 +15,5 @@ WriteMakefile(
 	'clean'			=> {
 		'FILES'	=> 'Mac-OSA-Simple-*'
 	},
+	'NO_META'		=> 1,
 );

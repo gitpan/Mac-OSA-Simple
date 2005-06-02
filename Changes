@@ -1,6 +1,11 @@
+* v1.09, Wednesday, June 1, 2005
+
+   Fixed old bug where true-but-false values are not returned. (Peter N Lewis)
+
+
 * v1.08, Sunday, November 9, 2003
 
-   Oops, forgot Mac::AppleEvents::Simple in PREREQ
+   Oops, forgot Mac::AppleEvents::Simple in PREREQ.
 
 
 * v1.07, Sunday, November 9, 2003
